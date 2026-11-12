@@ -1,79 +1,189 @@
-// Apertura de los archivos desplegables
-const triggers = document.querySelectorAll('[aria-controls]');
+
+/* ============================================
+   PORTAFOLIO — JAVASCRIPT ACCESIBLE
+   WCAG 2.2
+   ============================================ */
+
+// Indicar que JavaScript está disponible
+document.documentElement.classList.add('js');
+
+// Detectar preferencia de movimiento reducido
+const reducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+);
+
+
+// ============================================
+// 1. PANELES DESPLEGABLES
+// ============================================
+
+const triggers = document.querySelectorAll(
+    'button[aria-controls]'
+);
+
 triggers.forEach((trigger) => {
-  trigger.addEventListener('click', () => {
-    const panel = document.getElementById(trigger.getAttribute('aria-controls'));
-    const willOpen = trigger.getAttribute('aria-expanded') !== 'true';
 
-    trigger.setAttribute('aria-expanded', String(willOpen));
-    panel.classList.toggle('is-open', willOpen);
-    panel.setAttribute('aria-hidden', String(!willOpen));
+    const panelId = trigger.getAttribute('aria-controls');
+    const panel = document.getElementById(panelId);
 
-    if (willOpen) {
-      window.setTimeout(() => {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 180);
-    }
-  });
+    if (!panel) return;
+
+    // Estado inicial
+    trigger.setAttribute('aria-expanded', 'false');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('inert', '');
+
+    trigger.addEventListener('click', () => {
+
+        const isOpen =
+            trigger.getAttribute('aria-expanded') === 'true';
+
+        const shouldOpen = !isOpen;
+
+        // Actualizar estado del botón
+        trigger.setAttribute(
+            'aria-expanded',
+            String(shouldOpen)
+        );
+
+        // Actualizar estado del panel
+        panel.setAttribute(
+            'aria-hidden',
+            String(!shouldOpen)
+        );
+
+        // Evitar que elementos de paneles cerrados
+        // reciban el foco del teclado
+        if (shouldOpen) {
+            panel.removeAttribute('inert');
+        } else {
+            panel.setAttribute('inert', '');
+        }
+
+        // Cambiar nombre accesible del botón
+        const originalLabel = trigger.dataset.openLabel;
+
+        if (!originalLabel) {
+            trigger.dataset.openLabel =
+                trigger.getAttribute('aria-label') ||
+                trigger.textContent.trim();
+        }
+
+        trigger.setAttribute(
+            'aria-label',
+            shouldOpen
+                ? 'Cerrar ' + trigger.dataset.openLabel
+                : trigger.dataset.openLabel
+        );
+
+        // Desplazamiento respetando movimiento reducido
+        if (shouldOpen) {
+
+            panel.scrollIntoView({
+                behavior: reducedMotion.matches
+                    ? 'auto'
+                    : 'smooth',
+
+                block: 'nearest'
+            });
+
+        }
+
+    });
+
 });
 
-// Aparición progresiva de los elementos al entrar en pantalla
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('is-visible');
-      observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.12 });
-document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
 
-// Cursor experimental: se desactiva automáticamente en pantallas táctiles
-const cursor = document.querySelector('.cursor');
-const dot = document.querySelector('.cursor-dot');
-if (window.matchMedia('(pointer: fine)').matches) {
-  let mouseX = 0, mouseY = 0, cursorX = 0, cursorY = 0;
-  window.addEventListener('mousemove', (event) => {
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    dot.style.left = `${mouseX}px`;
-    dot.style.top = `${mouseY}px`;
-  });
-  const follow = () => {
-    cursorX += (mouseX - cursorX) * 0.16;
-    cursorY += (mouseY - cursorY) * 0.16;
-    cursor.style.left = `${cursorX}px`;
-    cursor.style.top = `${cursorY}px`;
-    requestAnimationFrame(follow);
-  };
-  follow();
+// ============================================
+// 2. ANIMACIONES DE APARICIÓN
+// ============================================
+
+const revealElements = document.querySelectorAll('.reveal');
+
+if ('IntersectionObserver' in window) {
+
+    const observer = new IntersectionObserver(
+        (entries, observerInstance) => {
+
+            entries.forEach((entry) => {
+
+                if (entry.isIntersecting) {
+
+                    entry.target.classList.add('is-visible');
+
+                    observerInstance.unobserve(entry.target);
+
+                }
+
+            });
+
+        },
+        {
+            threshold: 0.12
+        }
+    );
+
+    revealElements.forEach((element) => {
+
+        observer.observe(element);
+
+    });
+
+} else {
+
+    // Compatibilidad con navegadores antiguos
+    revealElements.forEach((element) => {
+
+        element.classList.add('is-visible');
+
+    });
+
 }
 
-// El índice lateral acompaña el recorrido
-const sections = [...document.querySelectorAll('.section-marker')];
-const current = document.querySelector('.side-index__current');
-const line = document.querySelector('.side-index__line');
-const sectionObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (entry.isIntersecting) {
-      const index = entry.target.dataset.index;
-      current.textContent = index;
-      line.style.setProperty('--progress', `${Number(index) / 3 * 100}%`);
-      line.style.background = `linear-gradient(to bottom, var(--red) ${Number(index) / 3 * 100}%, #777 ${Number(index) / 3 * 100}%)`;
-    }
-  });
-}, { threshold: 0.45 });
-sections.forEach(section => sectionObserver.observe(section));
 
-// Movimiento sutil de la pegatina siguiendo el puntero
-const sticker = document.querySelector('.sticker');
-if (sticker && window.matchMedia('(pointer: fine)').matches) {
-  const stage = document.querySelector('.hero__stage');
-  stage.addEventListener('mousemove', (event) => {
-    const rect = stage.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    sticker.style.translate = `${x * 12}px ${y * 12}px`;
-  });
-  stage.addEventListener('mouseleave', () => { sticker.style.translate = '0 0'; });
+// ============================================
+// 3. MOVIMIENTO REDUCIDO
+// ============================================
+
+function updateMotionPreference() {
+
+    if (reducedMotion.matches) {
+
+        revealElements.forEach((element) => {
+
+            element.classList.add('is-visible');
+
+        });
+
+    }
+
 }
+
+updateMotionPreference();
+
+reducedMotion.addEventListener?.(
+    'change',
+    updateMotionPreference
+);
+
+
+// ============================================
+// 4. VALIDACIÓN DE IMÁGENES
+// ============================================
+
+document.querySelectorAll('.portfolio-image').forEach(
+    (image) => {
+
+        image.addEventListener('error', () => {
+
+            image.classList.add('image-error');
+
+            console.warn(
+                'No se pudo cargar la imagen:',
+                image.getAttribute('src')
+            );
+
+        });
+
+    }
+);
